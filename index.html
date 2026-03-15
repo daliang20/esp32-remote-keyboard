@@ -50,11 +50,7 @@
     z-index: 0;
   }
 
-  .header {
-    text-align: center;
-    z-index: 1;
-  }
-
+  .header { text-align: center; z-index: 1; }
   .header h1 {
     font-size: 13px;
     font-weight: 500;
@@ -64,12 +60,7 @@
     font-family: var(--font-mono);
     margin-bottom: 8px;
   }
-
-  .header p {
-    font-size: 13px;
-    color: var(--muted);
-    font-weight: 300;
-  }
+  .header p { font-size: 13px; color: var(--muted); font-weight: 300; }
 
   .status-bar {
     display: flex;
@@ -88,9 +79,7 @@
   }
 
   .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
+    width: 7px; height: 7px; border-radius: 50%;
     background: var(--muted);
     transition: background 0.3s, box-shadow 0.3s;
     flex-shrink: 0;
@@ -111,11 +100,7 @@
     align-items: center;
   }
 
-  .key-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
+  .key-row { display: flex; gap: 6px; align-items: center; }
 
   .key {
     background: var(--key-bg);
@@ -137,10 +122,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  .key:hover {
-    border-color: #4a4a52;
-    background: #252529;
-  }
+  .key:hover { border-color: #4a4a52; background: #252529; }
 
   .key.active, .key:active {
     background: var(--accent-dim);
@@ -158,24 +140,11 @@
   }
   .key.sending { animation: flash-send 0.35s ease-out; }
 
-  .keyboard-bottom {
-    display: flex;
-    gap: 32px;
-    align-items: flex-end;
-  }
+  .keyboard-bottom { display: flex; gap: 32px; align-items: flex-end; }
 
-  .arrow-cluster {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: center;
-  }
+  .arrow-cluster { display: flex; flex-direction: column; gap: 6px; align-items: center; }
 
-  .key-spacer {
-    width: 48px;
-    height: 48px;
-    flex-shrink: 0;
-  }
+  .key-spacer { width: 48px; height: 48px; flex-shrink: 0; }
 
   .log-panel {
     z-index: 1;
@@ -199,14 +168,9 @@
   }
 
   .log-clear {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: none; border: none;
+    color: var(--muted); font-family: var(--font-mono); font-size: 11px;
+    cursor: pointer; padding: 2px 6px; border-radius: 4px;
     transition: color 0.2s, background 0.2s;
   }
   .log-clear:hover { color: var(--danger); background: rgba(255,77,109,0.08); }
@@ -222,13 +186,7 @@
     gap: 3px;
   }
 
-  .log-entry {
-    display: flex;
-    gap: 12px;
-    opacity: 0;
-    animation: fade-in 0.2s forwards;
-  }
-
+  .log-entry { display: flex; gap: 12px; opacity: 0; animation: fade-in 0.2s forwards; }
   @keyframes fade-in { to { opacity: 1; } }
 
   .log-time   { color: var(--muted); flex-shrink: 0; }
@@ -281,7 +239,6 @@
   </div>
 
   <div class="keyboard-bottom">
-
     <div class="key-row">
       <div class="key" data-key="Z">Z</div>
       <div class="key" data-key="X">X</div>
@@ -304,8 +261,8 @@
         <div class="key" data-key="RIGHT">→</div>
       </div>
     </div>
-
   </div>
+
 </div>
 
 <div class="log-panel">
@@ -321,13 +278,13 @@
   import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
 
   const firebaseConfig = {
-    apiKey:            "AIzaSyAxBt7YKGPttv9XSgD33FolY5LfGPCV5Rw",
-    authDomain:        "esp32-keyboard-56aef.firebaseapp.com",
-    databaseURL:       "https://esp32-keyboard-56aef-default-rtdb.firebaseio.com",
-    projectId:         "esp32-keyboard-56aef",
-    storageBucket:     "esp32-keyboard-56aef.firebasestorage.app",
-    messagingSenderId: "669240074866",
-    appId:             "1:669240074866:web:3971e866f30f8879a258eb"
+    apiKey:            "__FIREBASE_API_KEY__",
+    authDomain:        "__FIREBASE_AUTH_DOMAIN__",
+    databaseURL:       "__FIREBASE_DATABASE_URL__",
+    projectId:         "__FIREBASE_PROJECT_ID__",
+    storageBucket:     "__FIREBASE_STORAGE_BUCKET__",
+    messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+    appId:             "__FIREBASE_APP_ID__"
   };
 
   const app    = initializeApp(firebaseConfig);
