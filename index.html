@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Remote Keyboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #161619;
+    --border: #2a2a2e;
+    --accent: #00e5a0;
+    --accent-dim: rgba(0,229,160,0.12);
+    --accent-glow: rgba(0,229,160,0.35);
+    --text: #e8e8ec;
+    --muted: #666670;
+    --key-bg: #1e1e22;
+    --key-border: #35353b;
+    --danger: #ff4d6d;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-ui: 'Space Grotesk', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .header {
+    text-align: center;
+    z-index: 1;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    z-index: 1;
+    min-width: 320px;
+    justify-content: space-between;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
+  }
+  .status-dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .status-dot.error     { background: var(--danger); }
+
+  .status-left { display: flex; align-items: center; gap: 8px; }
+  #status-text { color: var(--text); }
+  .last-sent   { font-size: 11px; color: var(--muted); }
+  #last-key-display { color: var(--accent); font-weight: 700; }
+
+  .keyboard-wrap {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .key-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .key {
+    background: var(--key-bg);
+    border: 1px solid var(--key-border);
+    border-bottom: 3px solid #111;
+    border-radius: 7px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    width: 48px;
+    transition: background 0.08s, border-color 0.08s, transform 0.08s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .key:hover {
+    border-color: #4a4a52;
+    background: #252529;
+  }
+
+  .key.active, .key:active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    border-bottom-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(1px);
+    box-shadow: 0 0 12px var(--accent-glow), inset 0 0 8px rgba(0,229,160,0.08);
+  }
+
+  @keyframes flash-send {
+    0%   { box-shadow: 0 0 0px var(--accent-glow); }
+    40%  { box-shadow: 0 0 24px var(--accent-glow); }
+    100% { box-shadow: 0 0 0px var(--accent-glow); }
+  }
+  .key.sending { animation: flash-send 0.35s ease-out; }
+
+  .keyboard-bottom {
+    display: flex;
+    gap: 32px;
+    align-items: flex-end;
+  }
+
+  .arrow-cluster {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .key-spacer {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+
+  .log-panel {
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .log-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .log-clear {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+  }
+  .log-clear:hover { color: var(--danger); background: rgba(255,77,109,0.08); }
+
+  .log-entries {
+    padding: 10px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    height: 80px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 3px;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 12px;
+    opacity: 0;
+    animation: fade-in 0.2s forwards;
+  }
+
+  @keyframes fade-in { to { opacity: 1; } }
+
+  .log-time   { color: var(--muted); flex-shrink: 0; }
+  .log-key    { color: var(--accent); font-weight: 700; min-width: 60px; }
+  .log-status { color: var(--muted); font-size: 11px; }
+  .log-status.ok  { color: #4ade80; }
+  .log-status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>// ESP32 Remote Keyboard</h1>
+  <p>Press a key to send it to your device over Firebase</p>
+</div>
+
+<div class="status-bar">
+  <div class="status-left">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Connecting...</span>
+  </div>
+  <div class="last-sent">last sent: <span id="last-key-display">—</span></div>
+</div>
+
+<div class="keyboard-wrap">
+
+  <div class="key-row">
+    <div class="key" data-key="Q">Q</div>
+    <div class="key" data-key="W">W</div>
+    <div class="key" data-key="E">E</div>
+    <div class="key" data-key="R">R</div>
+    <div class="key" data-key="T">T</div>
+    <div class="key" data-key="Y">Y</div>
+    <div class="key" data-key="U">U</div>
+    <div class="key" data-key="I">I</div>
+    <div class="key" data-key="O">O</div>
+    <div class="key" data-key="P">P</div>
+  </div>
+
+  <div class="key-row">
+    <div class="key" data-key="A">A</div>
+    <div class="key" data-key="S">S</div>
+    <div class="key" data-key="D">D</div>
+    <div class="key" data-key="F">F</div>
+    <div class="key" data-key="G">G</div>
+    <div class="key" data-key="H">H</div>
+    <div class="key" data-key="J">J</div>
+    <div class="key" data-key="K">K</div>
+    <div class="key" data-key="L">L</div>
+  </div>
+
+  <div class="keyboard-bottom">
+
+    <div class="key-row">
+      <div class="key" data-key="Z">Z</div>
+      <div class="key" data-key="X">X</div>
+      <div class="key" data-key="C">C</div>
+      <div class="key" data-key="V">V</div>
+      <div class="key" data-key="B">B</div>
+      <div class="key" data-key="N">N</div>
+      <div class="key" data-key="M">M</div>
+    </div>
+
+    <div class="arrow-cluster">
+      <div class="key-row">
+        <div class="key-spacer"></div>
+        <div class="key" data-key="UP">↑</div>
+        <div class="key-spacer"></div>
+      </div>
+      <div class="key-row">
+        <div class="key" data-key="LEFT">←</div>
+        <div class="key" data-key="DOWN">↓</div>
+        <div class="key" data-key="RIGHT">→</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="log-panel">
+  <div class="log-header">
+    <span>activity log</span>
+    <button class="log-clear" onclick="clearLog()">clear</button>
+  </div>
+  <div class="log-entries" id="log"></div>
+</div>
+
+<script type="module">
+  import { initializeApp }         from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyAxBt7YKGPttv9XSgD33FolY5LfGPCV5Rw",
+    authDomain:        "esp32-keyboard-56aef.firebaseapp.com",
+    databaseURL:       "https://esp32-keyboard-56aef-default-rtdb.firebaseio.com",
+    projectId:         "esp32-keyboard-56aef",
+    storageBucket:     "esp32-keyboard-56aef.firebasestorage.app",
+    messagingSenderId: "669240074866",
+    appId:             "1:669240074866:web:3971e866f30f8879a258eb"
+  };
+
+  const app    = initializeApp(firebaseConfig);
+  const db     = getDatabase(app);
+  const keyRef = ref(db, "keyboard/lastKey");
+
+  const dot        = document.getElementById("status-dot");
+  const statusText = document.getElementById("status-text");
+  const lastKeyEl  = document.getElementById("last-key-display");
+  const logEl      = document.getElementById("log");
+
+  dot.classList.add("connected");
+  statusText.textContent = "Connected to Firebase";
+
+  async function sendKey(keyName, keyEl) {
+    keyEl.classList.add("sending");
+    keyEl.addEventListener("animationend", () => keyEl.classList.remove("sending"), { once: true });
+    lastKeyEl.textContent = keyName;
+    try {
+      await set(keyRef, { key: keyName, timestamp: Date.now() });
+      addLog(keyName, "sent ✓", "ok");
+    } catch (e) {
+      dot.classList.remove("connected");
+      dot.classList.add("error");
+      statusText.textContent = "Write failed";
+      addLog(keyName, "error ✗", "err");
+    }
+  }
+
+  function addLog(key, status, cls) {
+    const t     = new Date().toTimeString().slice(0, 8);
+    const entry = document.createElement("div");
+    entry.className = "log-entry";
+    entry.innerHTML = `<span class="log-time">${t}</span><span class="log-key">${key}</span><span class="log-status ${cls}">${status}</span>`;
+    logEl.prepend(entry);
+    while (logEl.children.length > 20) logEl.removeChild(logEl.lastChild);
+  }
+
+  document.querySelectorAll(".key").forEach(keyEl => {
+    keyEl.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      keyEl.classList.add("active");
+      sendKey(keyEl.dataset.key, keyEl);
+    });
+    keyEl.addEventListener("pointerup",    () => keyEl.classList.remove("active"));
+    keyEl.addEventListener("pointerleave", () => keyEl.classList.remove("active"));
+  });
+
+  const keyMap = {
+    "ArrowUp": "UP", "ArrowDown": "DOWN",
+    "ArrowLeft": "LEFT", "ArrowRight": "RIGHT"
+  };
+
+  const validKeys = new Set([
+    "A","B","C","D","E","F","G","H","I","J","K","L","M",
+    "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
+    "UP","DOWN","LEFT","RIGHT"
+  ]);
+
+  document.addEventListener("keydown", e => {
+    if (e.repeat) return;
+    const mapped = keyMap[e.key] || e.key.toUpperCase();
+    if (!validKeys.has(mapped)) return;
+    const keyEl = document.querySelector(`[data-key="${mapped}"]`);
+    if (keyEl) { keyEl.classList.add("active"); sendKey(mapped, keyEl); }
+  });
+
+  document.addEventListener("keyup", e => {
+    const mapped = keyMap[e.key] || e.key.toUpperCase();
+    const keyEl  = document.querySelector(`[data-key="${mapped}"]`);
+    if (keyEl) keyEl.classList.remove("active");
+  });
+
+  window.clearLog = () => { logEl.innerHTML = ""; };
+</script>
+</body>
+</html>
